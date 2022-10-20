@@ -203,7 +203,7 @@ def openml_scores(
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", type=str)
-parser.add_argument("--n_jobs", type=int)
+parser.add_argument("--n_jobs", type=int, default=1)
 args = parser.parse_args()
 
 dataset_name = args.dataset

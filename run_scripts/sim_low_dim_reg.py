@@ -145,7 +145,7 @@ def gen_results(n, p, imputer_name, power=1, seed=10):
     return results
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--n_jobs", type=int)
+parser.add_argument("--n_jobs", type=int, default=1)
 args = parser.parse_args()
 
 n = 10000
