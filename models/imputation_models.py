@@ -6,8 +6,8 @@ from statsmodels.stats.multitest import multipletests
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_is_fitted
 from sklearn.impute import MissingIndicator
-from gcimpute.gcimpute.gaussian_copula import GaussianCopula
-from gcimpute.gcimpute.low_rank_gaussian_copula import LowRankGaussianCopula
+from gcimpute.gaussian_copula import GaussianCopula
+from gcimpute.low_rank_gaussian_copula import LowRankGaussianCopula
 
 class GCImputer(BaseEstimator, TransformerMixin):
     def __init__(self, **gc_params):

@@ -15,7 +15,6 @@ from sklearn.pipeline import make_pipeline
 from sklearn.compose import make_column_transformer
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from xgboost import XGBClassifier, XGBRegressor
-from tqdm import tqdm
 from joblib import Parallel, delayed
 import argparse
 
@@ -244,7 +243,6 @@ args = parser.parse_args()
 
 dataset_name = args.dataset
 imputers = ["mean", get_gc_type(dataset_name), "mf"]
-# imputers = ["mean"]
 n_trials = 20
 seeds = range(10, 10+n_trials)
 

@@ -2,9 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-# from category_encoders.ordinal import OrdinalEncoder
 from sklearn.compose import make_column_transformer
-from pyampute.ampute import MultivariateAmputation
 from time import time
 
 def simple_mask(X, p=0.5, rng=None, seed=None, return_na=False):

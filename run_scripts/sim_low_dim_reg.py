@@ -13,7 +13,6 @@ from sklearn.pipeline import make_pipeline, FeatureUnion
 from sklearn.compose import make_column_transformer
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from xgboost import XGBClassifier, XGBRegressor
-from tqdm import tqdm
 from joblib import Parallel, delayed
 import itertools
 import argparse
