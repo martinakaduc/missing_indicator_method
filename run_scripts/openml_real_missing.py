@@ -23,7 +23,8 @@ from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
 
 import sys
-sys.path.insert(1, "/data/jmv249")
+sys.path.append("../utils")
+sys.path.append("../models")
 from imputation_utils import simple_mask, MNAR_mask
 from imputation_models import GCImputer, LRGCImputer, MIM, Oracle_MIM
 from tabular_utils import time_fit, time_fit_transform, make_val_split, get_dataset_details, load_dataset, get_gc_type
@@ -229,4 +230,4 @@ results = sum(results, [])
 
 df = pd.DataFrame(results, columns=["Seed", "Alpha", "Imputer", "Model", "MIM", "Score", "Impute_Time", "Model_Time"])
 
-df.to_csv(f"/data/jmv249/Informative_Missingness/openml_outputs/{dataset_name}_real_missing.csv", index=False)
+df.to_csv(f"openml_outputs/{dataset_name}_real_missing.csv", index=False)

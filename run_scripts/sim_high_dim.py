@@ -17,6 +17,7 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import itertools
 from collections import Counter
+import argparse
 
 from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
@@ -37,7 +38,8 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
 os.environ["KMP_WARNINGS"] = "FALSE"
 os.environ["OMP_WARNINGS"] = "FALSE"
 
-sys.path.append("/data/jmv249")
+sys.path.append("../utils")
+sys.path.append("../models")
 from imputation_utils import simple_mask, MNAR_mask
 from imputation_models import GCImputer, LRGCImputer, MIM, Oracle_MIM
 from tabular_utils import (
@@ -220,29 +222,26 @@ def gen_results(n, p, imputer_name, n_blocks=10, inf_prob=0.5, seed=10, alpha=0.
     return results
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--imputer", type=str)
+args = parser.parse_args()
 
 n = 1000
 p = 1000
 
 n_trials = 20
 seeds = range(10, 10 + n_trials)
-# inf_probs = np.arange(0, 11) / 10
-inf_probs = [0.2, 0.5, 0.8]
-# imputers = ["mean", "lrgc"]
-imputers = ["mean"]
+inf_probs = np.arange(0, 11) / 10
+imputer = args.imputer
 alpha = 0.1
 n_blocks = 20
-# alphas = [0.05, 0.1, 0.2]
 
 @ignore_warnings(category=ConvergenceWarning)
 def test():
-    # results = gen_results(n, p, "mean", inf_prob=0.5, seed=10, alpha=0.1)
     results = Parallel(n_jobs=60, backend="multiprocessing")(
         delayed(gen_results)(n, p, imputer, n_blocks=n_blocks, inf_prob=inf_prob, seed=seed, alpha=alpha)
-        for seed, imputer, inf_prob in itertools.product(seeds, imputers, inf_probs)
+        for seed, inf_prob in itertools.product(seeds, inf_probs)
     )
-    # results = gen_results(n, p, "mean", inf_prob=0.5, seed=10, alpha=0.1)
-    # results = gen_results(n, p, "mean", inf_prob=0.5, seed=10, alpha=0.1)
     return results
 
 results = test()
@@ -250,4 +249,4 @@ results = sum(results, [])
 
 results = pd.DataFrame(results, columns=["Seed", "Alpha", "Inf_Prob", "Imputer", "Model", "MIM", "Score", "Time"])
 
-# results.to_csv("/data/jmv249/Informative_Missingness/sim_outputs/sim_dynamic_mim_block_mean.csv", index=False)
+results.to_csv("sim_outputs/sim_dynamic_mim_block_{imputer}.csv", index=False)
