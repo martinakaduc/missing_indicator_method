@@ -1,0 +1,11 @@
+gcimpute==0.0.3
+joblib==1.0.1
+matplotlib==3.4.2
+numpy==1.20.3
+pandas==1.2.4
+pyampute==0.0.2
+scikit_learn==1.1.2
+scipy==1.6.3
+statsmodels==0.12.2
+tqdm==4.61.2
+xgboost==1.5.0
