@@ -224,6 +224,7 @@ def gen_results(n, p, imputer_name, n_blocks=10, inf_prob=0.5, seed=10, alpha=0.
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--imputer", type=str)
+parser.add_argument("--n_jobs", type=int)
 args = parser.parse_args()
 
 n = 1000
@@ -238,7 +239,7 @@ n_blocks = 20
 
 @ignore_warnings(category=ConvergenceWarning)
 def test():
-    results = Parallel(n_jobs=60, backend="multiprocessing")(
+    results = Parallel(n_jobs=parser.n_jobs, backend="multiprocessing")(
         delayed(gen_results)(n, p, imputer, n_blocks=n_blocks, inf_prob=inf_prob, seed=seed, alpha=alpha)
         for seed, inf_prob in itertools.product(seeds, inf_probs)
     )

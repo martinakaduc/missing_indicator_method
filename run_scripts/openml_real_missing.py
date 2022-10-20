@@ -204,6 +204,7 @@ def openml_scores(
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", type=str)
+parser.add_argument("--n_jobs", type=int)
 args = parser.parse_args()
 
 dataset_name = args.dataset
@@ -214,7 +215,7 @@ seeds = range(10, 10+n_trials)
 
 @ignore_warnings(category=ConvergenceWarning)
 def run():
-    results = Parallel(n_jobs=60, backend="multiprocessing")(
+    results = Parallel(n_jobs=args.n_jobs, backend="multiprocessing")(
         delayed(openml_scores)(
             imputer_name=imputer, 
             dataset_name=dataset_name,

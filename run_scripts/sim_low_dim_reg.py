@@ -16,6 +16,7 @@ from xgboost import XGBClassifier, XGBRegressor
 from tqdm import tqdm
 from joblib import Parallel, delayed
 import itertools
+import argparse
 
 from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
@@ -144,7 +145,9 @@ def gen_results(n, p, imputer_name, power=1, seed=10):
 
     return results
 
-
+parser = argparse.ArgumentParser()
+parser.add_argument("--n_jobs", type=int)
+args = parser.parse_args()
 
 n = 10000
 p = 10
@@ -157,7 +160,7 @@ imputers = ["mean", "gc", "mf"]
 
 @ignore_warnings(category=ConvergenceWarning)
 def test():
-    results = Parallel(n_jobs=50, backend="multiprocessing")(
+    results = Parallel(n_jobs=args.n_jobs, backend="multiprocessing")(
         delayed(gen_results)(n, p, imputer, power=power, seed=seed)
         for seed, power, imputer in itertools.product(seeds, powers, imputers)
     )
