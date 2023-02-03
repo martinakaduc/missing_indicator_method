@@ -13,9 +13,9 @@ from sklearn.pipeline import make_pipeline, FeatureUnion
 from sklearn.compose import make_column_transformer
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from xgboost import XGBClassifier, XGBRegressor
+from tqdm import tqdm
 from joblib import Parallel, delayed
 import itertools
-import argparse
 
 from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
@@ -144,9 +144,7 @@ def gen_results(n, p, imputer_name, power=1, seed=10):
 
     return results
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--n_jobs", type=int, default=1)
-args = parser.parse_args()
+
 
 n = 10000
 p = 10
@@ -159,7 +157,7 @@ imputers = ["mean", "gc", "mf"]
 
 @ignore_warnings(category=ConvergenceWarning)
 def test():
-    results = Parallel(n_jobs=args.n_jobs, backend="multiprocessing")(
+    results = Parallel(n_jobs=50, backend="multiprocessing")(
         delayed(gen_results)(n, p, imputer, power=power, seed=seed)
         for seed, power, imputer in itertools.product(seeds, powers, imputers)
     )
@@ -171,4 +169,4 @@ results = sum(results, [])
 
 results = pd.DataFrame(results, columns=["Seed", "Power", "Imputer", "Model", "MIM", "Score", "Impute_Time", "Model_Time"])
 
-results.to_csv("sim_outputs/sim_low_dim_reg.csv", index=False)
+results.to_csv("../outputs/sim_outputs/sim_low_dim_reg.csv", index=False)

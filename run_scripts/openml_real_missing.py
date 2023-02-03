@@ -15,6 +15,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.compose import make_column_transformer
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from xgboost import XGBClassifier, XGBRegressor
+from tqdm import tqdm
 from joblib import Parallel, delayed
 import argparse
 
@@ -23,7 +24,7 @@ from sklearn.exceptions import ConvergenceWarning
 
 import sys
 sys.path.append("../utils")
-sys.path.append("../models")
+sys.path.append('../models')
 from imputation_utils import simple_mask, MNAR_mask
 from imputation_models import GCImputer, LRGCImputer, MIM, Oracle_MIM
 from tabular_utils import time_fit, time_fit_transform, make_val_split, get_dataset_details, load_dataset, get_gc_type
@@ -94,25 +95,6 @@ def openml_scores(
             StandardScaler(),
             IterativeImputer(estimator=RandomForestRegressor(random_state=seed)),
         )
-    elif imputer_name == "categorical":
-        print("THIS ISNT IMPLEMENTED YET")
-        return
-        # num_feats = [c for c in X.columns if X[c].dtype.name != "category"]
-        # cat_feats = [c for c in X.columns if X[c].dtype.name == "category"]
-
-        # num_imputer = make_pipeline(
-        #     StandardScaler(),
-        #     SimpleImputer(strategy="constant", fill_value=0),
-        # )
-        # cat_imputer = make_pipeline(
-
-        # )
-
-        # imputer = make_pipeline(
-        #     make_column_transformer(
-        #         ()
-        #     )
-        # )
     else:
         raise ValueError("imputer_name must be one of mean, gc, or mf")
 
@@ -161,7 +143,10 @@ def openml_scores(
         # Performance for no MIM
         model_ = model(**model_params)
         no_mim_time = time_fit(model_, X_train_imputed, y_train)
-        no_mim_score = metric(y_test, model_.predict(X_test_imputed), **metric_kwargs)
+        if task == "binary":
+            no_mim_score = metric(y_test, model_.predict_proba(X_test_imputed)[:, 1], **metric_kwargs)
+        else:
+            no_mim_score = metric(y_test, model_.predict(X_test_imputed), **metric_kwargs)
         results.append([seed, alpha, imputer_name, model_name, "No_MIM", no_mim_score, impute_time, no_mim_time])
 
         # Performance for normal MIM
@@ -175,7 +160,10 @@ def openml_scores(
         ))
         model_ = model(**model_params)
         mim_time = time_fit(model_, X_train_input, y_train)
-        mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
+        if task == "binary":
+            mim_score = metric(y_test, model_.predict_proba(X_test_input)[:, 1], **metric_kwargs)
+        else:
+            mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
         results.append([seed, alpha, imputer_name, model_name, "MIM", mim_score, impute_time, mim_time])
 
         # Performance for dynamic MIM
@@ -194,7 +182,10 @@ def openml_scores(
         ))
         model_ = model(**model_params)
         dynamic_mim_time = time_fit(model_, X_train_input, y_train)
-        dynamic_mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
+        if task == "binary":
+            dynamic_mim_score = metric(y_test, model_.predict_proba(X_test_input)[:, 1], **metric_kwargs)
+        else:
+            dynamic_mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
         results.append([seed, alpha, imputer_name, model_name, "Dynamic_MIM", dynamic_mim_score, impute_time, dynamic_mim_time])
 
     return results
@@ -203,7 +194,6 @@ def openml_scores(
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", type=str)
-parser.add_argument("--n_jobs", type=int, default=1)
 args = parser.parse_args()
 
 dataset_name = args.dataset
@@ -214,7 +204,7 @@ seeds = range(10, 10+n_trials)
 
 @ignore_warnings(category=ConvergenceWarning)
 def run():
-    results = Parallel(n_jobs=args.n_jobs, backend="multiprocessing")(
+    results = Parallel(n_jobs=60, backend="multiprocessing")(
         delayed(openml_scores)(
             imputer_name=imputer, 
             dataset_name=dataset_name,
@@ -230,4 +220,4 @@ results = sum(results, [])
 
 df = pd.DataFrame(results, columns=["Seed", "Alpha", "Imputer", "Model", "MIM", "Score", "Impute_Time", "Model_Time"])
 
-df.to_csv(f"openml_outputs/{dataset_name}_real_missing.csv", index=False)
+df.to_csv(f"../outputs/openml_outputs/{dataset_name}.csv", index=False)

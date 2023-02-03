@@ -15,6 +15,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.compose import make_column_transformer
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from xgboost import XGBClassifier, XGBRegressor
+from tqdm import tqdm
 from joblib import Parallel, delayed
 import argparse
 
@@ -63,7 +64,7 @@ def openml_scores(
     inf_prob=0.5
 ):
 
-    print(f"RESULTS FOR inf_prob={inf_prob}, seed={seed}")
+    print(f"RUNNING seed={seed}, imputer={imputer_name}")
 
     X, y = load_dataset(dataset_name=dataset_name)
 
@@ -119,6 +120,7 @@ def openml_scores(
             results.append([seed, alpha, inf_prob, imputer_name, model_name, "MIM", None, None, None])
             results.append([seed, alpha, inf_prob, imputer_name, model_name, "Dynamic_MIM", None, None, None])
             results.append([seed, alpha, inf_prob, imputer_name, model_name, "Oracle_MIM", None, None, None])
+        print(f"FINISHED seed={seed}, imputer={imputer_name}")
         return results
 
     # Stop runs that we know won't finish for GC
@@ -132,6 +134,7 @@ def openml_scores(
             results.append([seed, alpha, inf_prob, imputer_name, model_name, "MIM", None, None, None])
             results.append([seed, alpha, inf_prob, imputer_name, model_name, "Dynamic_MIM", None, None, None])
             results.append([seed, alpha, inf_prob, imputer_name, model_name, "Oracle_MIM", None, None, None])
+        print(f"FINISHED seed={seed}, imputer={imputer_name}")
         return results
 
 
@@ -147,6 +150,7 @@ def openml_scores(
             results.append([seed, alpha, inf_prob, imputer_name, model_name, "MIM", None, None, None])
             results.append([seed, alpha, inf_prob, imputer_name, model_name, "Dynamic_MIM", None, None, None])
             results.append([seed, alpha, inf_prob, imputer_name, model_name, "Oracle_MIM", None, None, None])
+        print(f"FINISHED seed={seed}, imputer={imputer_name}")
         return results
 
     X_test_imputed = imputer.transform(X_test_masked)
@@ -163,6 +167,7 @@ def openml_scores(
     else:
         raise ValueError(f"task must be one of regression, binary, multiclass, got {task}")
 
+
     # Evaluate each model for no MIM, MIM, and dynanic MIM
     results = []
     for model, model_params in zip(models, model_params_sets):
@@ -173,7 +178,12 @@ def openml_scores(
         # Performance for no MIM
         model_ = model(**model_params)
         no_mim_time = time_fit(model_, X_train_imputed, y_train)
-        no_mim_score = metric(y_test, model_.predict(X_test_imputed), **metric_kwargs)
+
+        if task == "binary":
+            no_mim_score = metric(y_test, model_.predict_proba(X_test_imputed)[:, 1], **metric_kwargs)
+        else:
+            no_mim_score = metric(y_test, model_.predict(X_test_imputed), **metric_kwargs)
+
         results.append([seed, alpha, inf_prob, imputer_name, model_name, "No_MIM", no_mim_score, impute_time, no_mim_time])
 
         # Performance for normal MIM
@@ -189,7 +199,12 @@ def openml_scores(
         ))
         model_ = model(**model_params)
         mim_time = time_fit(model_, X_train_input, y_train)
-        mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
+
+        if task == "binary":
+            mim_score = metric(y_test, model_.predict_proba(X_test_input)[:, 1], **metric_kwargs)
+        else:
+            mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
+
         results.append([seed, alpha, inf_prob, imputer_name, model_name, "MIM", mim_score, impute_time, mim_time])
 
         # Performance for dynamic MIM
@@ -208,7 +223,12 @@ def openml_scores(
         ))
         model_ = model(**model_params)
         dynamic_mim_time = time_fit(model_, X_train_input, y_train)
-        dynamic_mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
+
+        if task == "binary":
+            dynamic_mim_score = metric(y_test, model_.predict_proba(X_test_input)[:, 1], **metric_kwargs)
+        else:
+            dynamic_mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
+
         results.append([seed, alpha, inf_prob, imputer_name, model_name, "Dynamic_MIM", dynamic_mim_score, impute_time, dynamic_mim_time])
 
 
@@ -230,31 +250,37 @@ def openml_scores(
         ))
         model_ = model(**model_params)
         oracle_mim_time = time_fit(model_, X_train_input, y_train)
-        oracle_mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
+
+        if task == "binary":
+            oracle_mim_score = metric(y_test, model_.predict_proba(X_test_input)[:, 1], **metric_kwargs)
+        else:
+            oracle_mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
+
         results.append([seed, alpha, inf_prob, imputer_name, model_name, "Oracle_MIM", oracle_mim_score, impute_time, oracle_mim_time])
 
+    print(f"FINISHED seed={seed}, imputer={imputer_name}")
     return results
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", type=str)
-parser.add_argument("--n_jobs", type=int, default=1)
 args = parser.parse_args()
 
 dataset_name = args.dataset
 imputers = ["mean", get_gc_type(dataset_name), "mf"]
+# imputers = ["mean"]
 n_trials = 20
 seeds = range(10, 10+n_trials)
 
 @ignore_warnings(category=ConvergenceWarning)
 def run():
-    results = Parallel(n_jobs=args.n_jobs, backend="multiprocessing")(
+    results = Parallel(n_jobs=60, backend="multiprocessing")(
         delayed(openml_scores)(
             imputer_name=imputer, 
             dataset_name=dataset_name,
             seed=seed,
             alpha=0.1,
-            inf_prob=0.7,
+            inf_prob=0.5,
         ) 
         for seed, imputer in itertools.product(seeds, imputers)
     )
@@ -265,4 +291,4 @@ results = sum(results, [])
 
 df = pd.DataFrame(results, columns=["Seed", "Alpha", "Inf_Prob", "Imputer", "Model", "MIM", "Score", "Impute_Time", "Model_Time"])
 
-df.to_csv(f"openml_outputs/{dataset_name}_dynamic_mim_07.csv", index=False)
+df.to_csv(f"../outputs/openml_outputs/{dataset_name}.csv", index=False)
