@@ -3,7 +3,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_openml, make_classification
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay, mean_squared_error
+from sklearn.metrics import (
+    accuracy_score,
+    roc_auc_score,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    mean_squared_error,
+)
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
@@ -24,25 +30,35 @@ from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
 
 import sys
+
 sys.path.append("../utils")
 sys.path.append("../models")
 from imputation_utils import simple_mask, MNAR_mask
 from imputation_models import GCImputer, LRGCImputer, MIM, Oracle_MIM
-from tabular_utils import time_fit, time_fit_transform, make_val_split, get_dataset_details, load_dataset, get_gc_type
+from tabular_utils import (
+    time_fit,
+    time_fit_transform,
+    make_val_split,
+    get_dataset_details,
+    load_dataset,
+    get_gc_type,
+)
 
 import warnings
+
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 import os
+
 if not sys.warnoptions:
     warnings.simplefilter("ignore")
     os.environ["PYTHONWARNINGS"] = "ignore"
 
 os.environ["OMP_THREAD_LIMIT"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1 
-os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = "1"  # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = "1"  # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = "1"  # export NUMEXPR_NUM_THREADS=1
 os.environ["KMP_WARNINGS"] = "FALSE"
 os.environ["OMP_WARNINGS"] = "FALSE"
 
@@ -57,7 +73,7 @@ def get_model_name(model):
 
 
 def openml_scores(
-    *, 
+    *,
     imputer_name,
     seed=10,
     alpha=0.05,
@@ -103,17 +119,24 @@ def openml_scores(
     else:
         raise ValueError("imputer_name must be one of mean, gc, or mf")
 
-
-    X_train_imputed, impute_time = time_fit_transform(imputer, X_train, y_train, time_limit=60*60*3)
+    X_train_imputed, impute_time = time_fit_transform(
+        imputer, X_train, y_train, time_limit=60 * 60 * 3
+    )
 
     # Is imputer didn't finish, report none results
     if X_train_imputed is None:
         results = []
         for model, model_params in zip(models, model_params_sets):
             model_name = get_model_name(model)
-            results.append([seed, alpha, imputer_name, model_name, "No_MIM", None, None, None])
-            results.append([seed, alpha, imputer_name, model_name, "MIM", None, None, None])
-            results.append([seed, alpha, imputer_name, model_name, "SMIM", None, None, None])
+            results.append(
+                [seed, alpha, imputer_name, model_name, "No_MIM", None, None, None]
+            )
+            results.append(
+                [seed, alpha, imputer_name, model_name, "MIM", None, None, None]
+            )
+            results.append(
+                [seed, alpha, imputer_name, model_name, "SMIM", None, None, None]
+            )
         print(f"FINISHING PHENOTYPING FOR seed={seed}, imputer={imputer_name}")
         return results
 
@@ -129,7 +152,9 @@ def openml_scores(
         metric = accuracy_score
         metric_kwargs = {}
     else:
-        raise ValueError(f"task must be one of regression, binary, multiclass, got {task}")
+        raise ValueError(
+            f"task must be one of regression, binary, multiclass, got {task}"
+        )
 
     # Evaluate each model for no MIM, MIM, and dynanic MIM
     results = []
@@ -138,40 +163,63 @@ def openml_scores(
         if model != LinearRegression:
             model_params["random_state"] = seed
 
-
         # Performance for no MIM
-        model_ = MultiOutputClassifier(
-            model(**model_params), n_jobs=1
-        )
+        model_ = MultiOutputClassifier(model(**model_params), n_jobs=1)
         no_mim_time = time_fit(model_, X_train_imputed, y_train)
 
-        pred_probs = np.stack([
-            label_preds[:, 1] for label_preds in model_.predict_proba(X_test_imputed)
-        ], axis=-1)
+        pred_probs = np.stack(
+            [label_preds[:, 1] for label_preds in model_.predict_proba(X_test_imputed)],
+            axis=-1,
+        )
 
         no_mim_score = metric(y_test, pred_probs, **metric_kwargs)
-        results.append([seed, alpha, imputer_name, model_name, "No_MIM", no_mim_score, impute_time, no_mim_time])
+        results.append(
+            [
+                seed,
+                alpha,
+                imputer_name,
+                model_name,
+                "No_MIM",
+                no_mim_score,
+                impute_time,
+                no_mim_time,
+            ]
+        )
 
         # Performance for normal MIM
-        X_train_input = np.hstack((
-            X_train_imputed,
-            train_mask,
-        ))
-        X_test_input = np.hstack((
-            X_test_imputed,
-            test_mask,
-        ))
-        model_ = MultiOutputClassifier(
-            model(**model_params), n_jobs=1
+        X_train_input = np.hstack(
+            (
+                X_train_imputed,
+                train_mask,
+            )
         )
+        X_test_input = np.hstack(
+            (
+                X_test_imputed,
+                test_mask,
+            )
+        )
+        model_ = MultiOutputClassifier(model(**model_params), n_jobs=1)
         mim_time = time_fit(model_, X_train_input, y_train)
 
-        pred_probs = np.stack([
-            label_preds[:, 1] for label_preds in model_.predict_proba(X_test_input)
-        ], axis=-1)
+        pred_probs = np.stack(
+            [label_preds[:, 1] for label_preds in model_.predict_proba(X_test_input)],
+            axis=-1,
+        )
 
         mim_score = metric(y_test, pred_probs, **metric_kwargs)
-        results.append([seed, alpha, imputer_name, model_name, "MIM", mim_score, impute_time, mim_time])
+        results.append(
+            [
+                seed,
+                alpha,
+                imputer_name,
+                model_name,
+                "MIM",
+                mim_score,
+                impute_time,
+                mim_time,
+            ]
+        )
 
         # Performance for SMIM
         # smim = MIM(features="dynamic", alpha=alpha)
@@ -199,7 +247,18 @@ def openml_scores(
         # smim_score = metric(y_test, pred_probs, **metric_kwargs)
         # results.append([seed, alpha, imputer_name, model_name, "SMIM", smim_score, impute_time, smim_time])
 
-        results.append([seed, alpha, imputer_name, model_name, "SMIM", mim_score, impute_time, mim_time])
+        results.append(
+            [
+                seed,
+                alpha,
+                imputer_name,
+                model_name,
+                "SMIM",
+                mim_score,
+                impute_time,
+                mim_time,
+            ]
+        )
 
     print(f"FINISHING PHENOTYPING FOR seed={seed}, imputer={imputer_name}")
     return results
@@ -209,8 +268,9 @@ dataset_name = "mortality"
 imputers = ["mean", "gc", "mf"]
 # imputers = ["mean"]
 n_trials = 20
-seeds = range(10, 10+n_trials)
+seeds = range(10, 10 + n_trials)
 # seeds = [10]
+
 
 @ignore_warnings(category=ConvergenceWarning)
 def run():
@@ -219,16 +279,29 @@ def run():
             imputer_name=imputer,
             seed=seed,
             alpha=0.1,
-        ) 
+        )
         for seed, imputer in itertools.product(seeds, imputers)
     )
     return results
 
 
-
 results = run()
 results = sum(results, [])
 
-df = pd.DataFrame(results, columns=["Seed", "Alpha", "Imputer", "Model", "MIM", "Score", "Impute_Time", "Model_Time"])
+df = pd.DataFrame(
+    results,
+    columns=[
+        "Seed",
+        "Alpha",
+        "Imputer",
+        "Model",
+        "MIM",
+        "Score",
+        "Impute_Time",
+        "Model_Time",
+    ],
+)
 
-df.to_csv(f"/data/jmv249/Informative_Missingness/mimic_outputs/phenotyping.csv", index=False)
+df.to_csv(
+    f"/data/jmv249/Informative_Missingness/mimic_outputs/phenotyping.csv", index=False
+)

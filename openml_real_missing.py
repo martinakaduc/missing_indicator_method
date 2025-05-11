@@ -3,7 +3,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_openml, make_classification
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay, mean_squared_error
+from sklearn.metrics import (
+    accuracy_score,
+    roc_auc_score,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    mean_squared_error,
+)
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
@@ -23,25 +29,35 @@ from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
 
 import sys
+
 sys.path.append("../utils")
-sys.path.append('../models')
+sys.path.append("../models")
 from imputation_utils import simple_mask, MNAR_mask
 from imputation_models import GCImputer, LRGCImputer, MIM, Oracle_MIM
-from tabular_utils import time_fit, time_fit_transform, make_val_split, get_dataset_details, load_dataset, get_gc_type
+from tabular_utils import (
+    time_fit,
+    time_fit_transform,
+    make_val_split,
+    get_dataset_details,
+    load_dataset,
+    get_gc_type,
+)
 
 import warnings
+
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 import os
+
 if not sys.warnoptions:
     warnings.simplefilter("ignore")
     os.environ["PYTHONWARNINGS"] = "ignore"
 
 os.environ["OMP_THREAD_LIMIT"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1 
-os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = "1"  # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = "1"  # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = "1"  # export NUMEXPR_NUM_THREADS=1
 os.environ["KMP_WARNINGS"] = "FALSE"
 os.environ["OMP_WARNINGS"] = "FALSE"
 
@@ -56,8 +72,8 @@ def get_model_name(model):
 
 
 def openml_scores(
-    *, 
-    imputer_name, 
+    *,
+    imputer_name,
     dataset_name,
     seed=10,
     alpha=0.05,
@@ -67,13 +83,14 @@ def openml_scores(
 
     X, y = load_dataset(dataset_name=dataset_name)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=seed)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.25, random_state=seed
+    )
 
     train_mask = np.where(np.isnan(X_train), 1, 0)
     test_mask = np.where(np.isnan(X_test), 1, 0)
 
     task, models, model_params_sets = get_dataset_details(dataset_name)
-
 
     if imputer_name == "mean":
         imputer = make_pipeline(
@@ -98,17 +115,24 @@ def openml_scores(
     else:
         raise ValueError("imputer_name must be one of mean, gc, or mf")
 
-
-    X_train_imputed, impute_time = time_fit_transform(imputer, X_train, y_train, time_limit=60*60*3)
+    X_train_imputed, impute_time = time_fit_transform(
+        imputer, X_train, y_train, time_limit=60 * 60 * 3
+    )
 
     # Is imputer didn't finish, report none results
     if X_train_imputed is None:
         results = []
         for model, model_params in zip(models, model_params_sets):
             model_name = get_model_name(model)
-            results.append([seed, alpha, imputer_name, model_name, "No_MIM", None, None, None])
-            results.append([seed, alpha, imputer_name, model_name, "MIM", None, None, None])
-            results.append([seed, alpha, imputer_name, model_name, "Dynamic_MIM", None, None, None])
+            results.append(
+                [seed, alpha, imputer_name, model_name, "No_MIM", None, None, None]
+            )
+            results.append(
+                [seed, alpha, imputer_name, model_name, "MIM", None, None, None]
+            )
+            results.append(
+                [seed, alpha, imputer_name, model_name, "Dynamic_MIM", None, None, None]
+            )
         return results
 
     X_test_imputed = imputer.transform(X_test)
@@ -123,7 +147,9 @@ def openml_scores(
         metric = accuracy_score
         metric_kwargs = {}
     else:
-        raise ValueError(f"task must be one of regression, binary, multiclass, got {task}")
+        raise ValueError(
+            f"task must be one of regression, binary, multiclass, got {task}"
+        )
 
     # Evaluate each model for no MIM, MIM, and dynanic MIM
     results = []
@@ -134,37 +160,65 @@ def openml_scores(
 
         if model == LinearRegression and dataset_name in ["crime", "meta"]:
             model = Ridge
-            model_params = {
-                "random_state": seed,
-                "alpha": 0.0001
-            }
-
+            model_params = {"random_state": seed, "alpha": 0.0001}
 
         # Performance for no MIM
         model_ = model(**model_params)
         no_mim_time = time_fit(model_, X_train_imputed, y_train)
         if task == "binary":
-            no_mim_score = metric(y_test, model_.predict_proba(X_test_imputed)[:, 1], **metric_kwargs)
+            no_mim_score = metric(
+                y_test, model_.predict_proba(X_test_imputed)[:, 1], **metric_kwargs
+            )
         else:
-            no_mim_score = metric(y_test, model_.predict(X_test_imputed), **metric_kwargs)
-        results.append([seed, alpha, imputer_name, model_name, "No_MIM", no_mim_score, impute_time, no_mim_time])
+            no_mim_score = metric(
+                y_test, model_.predict(X_test_imputed), **metric_kwargs
+            )
+        results.append(
+            [
+                seed,
+                alpha,
+                imputer_name,
+                model_name,
+                "No_MIM",
+                no_mim_score,
+                impute_time,
+                no_mim_time,
+            ]
+        )
 
         # Performance for normal MIM
-        X_train_input = np.hstack((
-            X_train_imputed,
-            train_mask,
-        ))
-        X_test_input = np.hstack((
-            X_test_imputed,
-            test_mask,
-        ))
+        X_train_input = np.hstack(
+            (
+                X_train_imputed,
+                train_mask,
+            )
+        )
+        X_test_input = np.hstack(
+            (
+                X_test_imputed,
+                test_mask,
+            )
+        )
         model_ = model(**model_params)
         mim_time = time_fit(model_, X_train_input, y_train)
         if task == "binary":
-            mim_score = metric(y_test, model_.predict_proba(X_test_input)[:, 1], **metric_kwargs)
+            mim_score = metric(
+                y_test, model_.predict_proba(X_test_input)[:, 1], **metric_kwargs
+            )
         else:
             mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
-        results.append([seed, alpha, imputer_name, model_name, "MIM", mim_score, impute_time, mim_time])
+        results.append(
+            [
+                seed,
+                alpha,
+                imputer_name,
+                model_name,
+                "MIM",
+                mim_score,
+                impute_time,
+                mim_time,
+            ]
+        )
 
         # Performance for dynamic MIM
         dynamic_mim = MIM(features="dynamic", alpha=alpha)
@@ -172,24 +226,42 @@ def openml_scores(
         train_mask_feats = dynamic_mim.fit_transform(X_train, y_train)
         test_mask_feats = dynamic_mim.transform(X_test)
 
-        X_train_input = np.hstack((
-            X_train_imputed,
-            train_mask_feats,
-        ))
-        X_test_input = np.hstack((
-            X_test_imputed,
-            test_mask_feats,
-        ))
+        X_train_input = np.hstack(
+            (
+                X_train_imputed,
+                train_mask_feats,
+            )
+        )
+        X_test_input = np.hstack(
+            (
+                X_test_imputed,
+                test_mask_feats,
+            )
+        )
         model_ = model(**model_params)
         dynamic_mim_time = time_fit(model_, X_train_input, y_train)
         if task == "binary":
-            dynamic_mim_score = metric(y_test, model_.predict_proba(X_test_input)[:, 1], **metric_kwargs)
+            dynamic_mim_score = metric(
+                y_test, model_.predict_proba(X_test_input)[:, 1], **metric_kwargs
+            )
         else:
-            dynamic_mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
-        results.append([seed, alpha, imputer_name, model_name, "Dynamic_MIM", dynamic_mim_score, impute_time, dynamic_mim_time])
+            dynamic_mim_score = metric(
+                y_test, model_.predict(X_test_input), **metric_kwargs
+            )
+        results.append(
+            [
+                seed,
+                alpha,
+                imputer_name,
+                model_name,
+                "Dynamic_MIM",
+                dynamic_mim_score,
+                impute_time,
+                dynamic_mim_time,
+            ]
+        )
 
     return results
-
 
 
 parser = argparse.ArgumentParser()
@@ -200,24 +272,38 @@ dataset_name = args.dataset
 imputers = ["mean", get_gc_type(dataset_name), "mf"]
 # imputers = ["mean"]
 n_trials = 20
-seeds = range(10, 10+n_trials)
+seeds = range(10, 10 + n_trials)
+
 
 @ignore_warnings(category=ConvergenceWarning)
 def run():
     results = Parallel(n_jobs=60, backend="multiprocessing")(
         delayed(openml_scores)(
-            imputer_name=imputer, 
+            imputer_name=imputer,
             dataset_name=dataset_name,
             seed=seed,
             alpha=0.1,
-        ) 
+        )
         for seed, imputer in itertools.product(seeds, imputers)
     )
     return results
 
+
 results = run()
 results = sum(results, [])
 
-df = pd.DataFrame(results, columns=["Seed", "Alpha", "Imputer", "Model", "MIM", "Score", "Impute_Time", "Model_Time"])
+df = pd.DataFrame(
+    results,
+    columns=[
+        "Seed",
+        "Alpha",
+        "Imputer",
+        "Model",
+        "MIM",
+        "Score",
+        "Impute_Time",
+        "Model_Time",
+    ],
+)
 
 df.to_csv(f"../outputs/openml_outputs/{dataset_name}.csv", index=False)

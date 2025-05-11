@@ -16,14 +16,20 @@ def move_to_partition(args, patients, partition):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Split data into train and test sets.')
-    parser.add_argument('subjects_root_path', type=str, help='Directory containing subject sub-directories.')
+    parser = argparse.ArgumentParser(description="Split data into train and test sets.")
+    parser.add_argument(
+        "subjects_root_path",
+        type=str,
+        help="Directory containing subject sub-directories.",
+    )
     args, _ = parser.parse_known_args()
 
     test_set = set()
-    with open(os.path.join(os.path.dirname(__file__), '../resources/testset.csv'), "r") as test_set_file:
+    with open(
+        os.path.join(os.path.dirname(__file__), "../resources/testset.csv"), "r"
+    ) as test_set_file:
         for line in test_set_file:
-            x, y = line.split(',')
+            x, y = line.split(",")
             if int(y) == 1:
                 test_set.add(x)
 
@@ -38,5 +44,5 @@ def main():
     move_to_partition(args, test_patients, "test")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

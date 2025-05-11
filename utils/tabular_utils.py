@@ -12,7 +12,6 @@ from scipy.linalg import block_diag
 from xgboost import XGBRegressor, XGBClassifier
 
 
-
 def make_classifier(n, p, k, seed=10):
     rng = np.random.default_rng(seed)
     if p > k:
@@ -31,9 +30,10 @@ def make_classifier(n, p, k, seed=10):
     beta = rng.normal(size=p)
     logits = X @ beta + rng.normal(loc=0, scale=5, size=n)
     logits = scale(logits.reshape(-1, 1)).reshape(-1)
-    y = rng.binomial(n=1, p = 1 / (1 + np.exp(-2*logits)), size=n)
+    y = rng.binomial(n=1, p=1 / (1 + np.exp(-2 * logits)), size=n)
 
     return X, y
+
 
 def make_regression(n, p, k=None, rank=None, seed=10, cov=None):
     rng = np.random.default_rng(seed)
@@ -56,7 +56,9 @@ def make_regression(n, p, k=None, rank=None, seed=10, cov=None):
 
             new_feats_noise_level = np.var(new_feats, axis=0) / 10
 
-            new_feats += rng.multivariate_normal(mean=np.zeros(p - k), cov=np.diag(new_feats_noise_level))
+            new_feats += rng.multivariate_normal(
+                mean=np.zeros(p - k), cov=np.diag(new_feats_noise_level)
+            )
 
             X = np.column_stack([X, new_feats])
         else:
@@ -79,20 +81,21 @@ def make_regression(n, p, k=None, rank=None, seed=10, cov=None):
 
     return X, y
 
+
 def make_block_diagonal_regression(n, p, block_size, block_corr=0.3, seed=10, snr=10):
     rng = np.random.default_rng(seed)
 
     if p % block_size != 0:
-        raise ValueError(f"p must be divisible by block size, got p={p}, block_size={block_size}")
+        raise ValueError(
+            f"p must be divisible by block size, got p={p}, block_size={block_size}"
+        )
 
     n_blocks = p // block_size
 
     block = np.ones(shape=(block_size, block_size)) * block_corr
     np.fill_diagonal(block, 1)
 
-    cov = block_diag(*[
-        block.copy() for _ in range(n_blocks)
-    ])
+    cov = block_diag(*[block.copy() for _ in range(n_blocks)])
 
     # X = rng.multivariate_normal(mean=rng.normal(size=p), cov=cov, size=n)
     X = rng.multivariate_normal(mean=np.zeros(p), cov=cov, size=n)
@@ -109,9 +112,6 @@ def make_block_diagonal_regression(n, p, block_size, block_corr=0.3, seed=10, sn
     y += noise
 
     return X, y, means
-
-
-
 
 
 # Make low rank X matrix
@@ -144,16 +144,18 @@ def time_fit(model, X_train, y_train):
     end = time()
     return end - start
 
+
 def timeout_handler(num, stack):
     print("Received SIGALRM")
     raise Exception("Ran out of time")
+
 
 def time_fit_transform(transform, X, y, time_limit=None):
     if time_limit is None:
         return time_fit_transform_(transform, X, y)
     else:
         signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(time_limit)    
+        signal.alarm(time_limit)
 
         try:
             results = time_fit_transform_(transform, X, y)
@@ -164,19 +166,22 @@ def time_fit_transform(transform, X, y, time_limit=None):
 
         return results
 
+
 def time_fit_transform_(transform, X, y):
     start = time()
     X_transformed = transform.fit_transform(X, y)
     end = time()
     return X_transformed, end - start
 
+
 def make_val_split(X_train, seed=10, val_size=0.2):
     X_train_, _ = train_test_split(X_train, test_size=val_size, random_state=seed)
 
     # Create a list where train data indices are -1 and validation data indices are 0
     split_index = [-1 if i in X_train_.index else 0 for i in X_train.index]
-    pds = PredefinedSplit(test_fold = split_index)
+    pds = PredefinedSplit(test_fold=split_index)
     return pds
+
 
 def load_dataset(dataset_name):
     dataset_ids = {
@@ -215,34 +220,73 @@ def load_dataset(dataset_name):
 
         if dataset_name in ["crime", "meta"]:
             # X = X[[c for c in X.columns if X[c].dtype.name != "category"]]
-            X = X[[c for c in X.columns if X[c].dtype.name != "category" and X[c].isna().sum() > 0]]
+            X = X[
+                [
+                    c
+                    for c in X.columns
+                    if X[c].dtype.name != "category" and X[c].isna().sum() > 0
+                ]
+            ]
 
-    
     else:
         data = fetch_openml(data_id=id)
         X, y = data["data"].copy(deep=False), data["target"].copy(deep=False)
         y = LabelEncoder().fit_transform(y)
 
         if dataset_name in ["volkert", "christine", "arcene"]:
-            X = X[[c for c in X.columns if X[c].nunique() > 2]] # Remove unnecessary features
+            X = X[
+                [c for c in X.columns if X[c].nunique() > 2]
+            ]  # Remove unnecessary features
         elif dataset_name == "higgs":
-            X = X.iloc[:-1, :] # last columns has NAs
+            X = X.iloc[:-1, :]  # last columns has NAs
             y = y[:-1]
         elif dataset_name in ["arrhythmia"]:
-            X = X[[c for c in X.columns if X[c].dtype.name != "category" and X[c].isna().sum() == 0]]
+            X = X[
+                [
+                    c
+                    for c in X.columns
+                    if X[c].dtype.name != "category" and X[c].isna().sum() == 0
+                ]
+            ]
         elif dataset_name in ["eucalyptus", "college", "mice", "dating", "bands"]:
-            X = X[[c for c in X.columns if X[c].dtype.name != "category" and X[c].isna().sum() > 0]]
+            X = X[
+                [
+                    c
+                    for c in X.columns
+                    if X[c].dtype.name != "category" and X[c].isna().sum() > 0
+                ]
+            ]
 
     return X, y
 
+
 def get_gc_type(dataset_name):
-    if dataset_name in ["christine", "volkert", "dilbert", "yolanda", "arcene", "tecator"]:
+    if dataset_name in [
+        "christine",
+        "volkert",
+        "dilbert",
+        "yolanda",
+        "arcene",
+        "tecator",
+    ]:
         return "lrgc"
     else:
         return "gc"
 
+
 def get_dataset_details(dataset_name):
-    if dataset_name in ["phoneme", "christine", "arcene", "higgs", "miniboone", "dating", "bands", "voting", "arrhythmia", "philippine"]:
+    if dataset_name in [
+        "phoneme",
+        "christine",
+        "arcene",
+        "higgs",
+        "miniboone",
+        "dating",
+        "bands",
+        "voting",
+        "arrhythmia",
+        "philippine",
+    ]:
         task = "binary"
         models = [LogisticRegression, XGBClassifier, MLPClassifier]
         model_params = [get_default_params(model) for model in models]
@@ -252,11 +296,20 @@ def get_dataset_details(dataset_name):
         models = [LogisticRegression, XGBClassifier, MLPClassifier]
         model_params = [get_default_params(model) for model in models]
         return task, models, model_params
-    if dataset_name in ["space", "tecator", "housing", "yolanda", "elevator", "crime", "meta"]:
+    if dataset_name in [
+        "space",
+        "tecator",
+        "housing",
+        "yolanda",
+        "elevator",
+        "crime",
+        "meta",
+    ]:
         task = "regression"
         models = [LinearRegression, XGBRegressor, MLPRegressor]
         model_params = [get_default_params(model) for model in models]
         return task, models, model_params
+
 
 def get_default_params(model):
     if model == LogisticRegression:
@@ -267,16 +320,12 @@ def get_default_params(model):
         return {"n_jobs": 1}
         # return {}
     if model == XGBClassifier:
-        return {
-            "use_label_encoder": False, 
-            "eval_metric": "logloss",
-            "n_jobs": 1
-        }
+        return {"use_label_encoder": False, "eval_metric": "logloss", "n_jobs": 1}
     if model in [MLPClassifier, MLPRegressor]:
         return {
-            "hidden_layer_sizes": (32, 32), 
-            "alpha": 0, 
-            "batch_size": 128, 
-            "max_iter": 30, 
+            "hidden_layer_sizes": (32, 32),
+            "alpha": 0,
+            "batch_size": 128,
+            "max_iter": 30,
             "solver": "adam",
         }

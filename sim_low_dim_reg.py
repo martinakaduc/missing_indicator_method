@@ -21,17 +21,19 @@ from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
 
 import warnings
+
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 import os
 import sys
+
 warnings.simplefilter("ignore")
 os.environ["PYTHONWARNINGS"] = "ignore"
 os.environ["OMP_THREAD_LIMIT"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1 
-os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = "1"  # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = "1"  # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = "1"  # export NUMEXPR_NUM_THREADS=1
 os.environ["KMP_WARNINGS"] = "FALSE"
 os.environ["OMP_WARNINGS"] = "FALSE"
 
@@ -39,7 +41,13 @@ sys.path.append("../utils")
 sys.path.append("../models")
 from imputation_utils import simple_mask, MNAR_mask
 from imputation_models import GCImputer, LRGCImputer, MIM, Oracle_MIM
-from tabular_utils import time_fit, get_dataset_details, time_fit_transform, gen_low_rank_data, make_regression
+from tabular_utils import (
+    time_fit,
+    get_dataset_details,
+    time_fit_transform,
+    gen_low_rank_data,
+    make_regression,
+)
 
 
 def get_model_name(model):
@@ -61,18 +69,23 @@ def gen_results(n, p, imputer_name, power=1, seed=10):
     np.fill_diagonal(cov, 1)
     X, y = make_regression(n=n, p=p, seed=seed, cov=cov)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=seed)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.25, random_state=seed
+    )
 
     # Get models for regression case using some regression dataset
     _, models, model_params_sets = get_dataset_details("housing")
 
-    # MNAR Mask 
-    _, train_mask = MNAR_mask(X_train, side="right", power=power, seed=seed, return_na=True, standardize=True)
+    # MNAR Mask
+    _, train_mask = MNAR_mask(
+        X_train, side="right", power=power, seed=seed, return_na=True, standardize=True
+    )
     X_train_masked = X_train * train_mask
 
-    _, test_mask = MNAR_mask(X_test, side="right", power=power, seed=seed, return_na=True, standardize=True)
+    _, test_mask = MNAR_mask(
+        X_test, side="right", power=power, seed=seed, return_na=True, standardize=True
+    )
     X_test_masked = X_test * test_mask
-
 
     if imputer_name == "mean":
         imputer = make_pipeline(
@@ -104,8 +117,12 @@ def gen_results(n, p, imputer_name, power=1, seed=10):
         results = []
         for model, model_params in zip(models, model_params_sets):
             model_name = get_model_name(model)
-            results.append([seed, power[0], imputer_name, model_name, "No_MIM", None, None, None])
-            results.append([seed, power[0], imputer_name, model_name, "MIM", None, None, None])
+            results.append(
+                [seed, power[0], imputer_name, model_name, "No_MIM", None, None, None]
+            )
+            results.append(
+                [seed, power[0], imputer_name, model_name, "MIM", None, None, None]
+            )
         return results
 
     X_test_imputed = imputer.transform(X_test_masked)
@@ -124,26 +141,51 @@ def gen_results(n, p, imputer_name, power=1, seed=10):
         model_ = model(**model_params)
         no_mim_time = time_fit(model_, X_train_imputed, y_train)
         no_mim_score = metric(y_test, model_.predict(X_test_imputed), **metric_kwargs)
-        results.append([seed, power[0], imputer_name, model_name, "No_MIM", no_mim_score, impute_time, no_mim_time])
+        results.append(
+            [
+                seed,
+                power[0],
+                imputer_name,
+                model_name,
+                "No_MIM",
+                no_mim_score,
+                impute_time,
+                no_mim_time,
+            ]
+        )
 
         # Performance for normal MIM
         train_mask_feats = np.where(np.isnan(train_mask), 1, 0)
         test_mask_feats = np.where(np.isnan(test_mask), 1, 0)
-        X_train_input = np.hstack((
-            X_train_imputed,
-            train_mask_feats,
-        ))
-        X_test_input = np.hstack((
-            X_test_imputed,
-            test_mask_feats,
-        ))
+        X_train_input = np.hstack(
+            (
+                X_train_imputed,
+                train_mask_feats,
+            )
+        )
+        X_test_input = np.hstack(
+            (
+                X_test_imputed,
+                test_mask_feats,
+            )
+        )
         model_ = model(**model_params)
         mim_time = time_fit(model_, X_train_input, y_train)
         mim_score = metric(y_test, model_.predict(X_test_input), **metric_kwargs)
-        results.append([seed, power[0], imputer_name, model_name, "MIM", mim_score, impute_time, mim_time])
+        results.append(
+            [
+                seed,
+                power[0],
+                imputer_name,
+                model_name,
+                "MIM",
+                mim_score,
+                impute_time,
+                mim_time,
+            ]
+        )
 
     return results
-
 
 
 n = 10000
@@ -163,10 +205,23 @@ def test():
     )
     return results
 
+
 results = test()
 
 results = sum(results, [])
 
-results = pd.DataFrame(results, columns=["Seed", "Power", "Imputer", "Model", "MIM", "Score", "Impute_Time", "Model_Time"])
+results = pd.DataFrame(
+    results,
+    columns=[
+        "Seed",
+        "Power",
+        "Imputer",
+        "Model",
+        "MIM",
+        "Score",
+        "Impute_Time",
+        "Model_Time",
+    ],
+)
 
 results.to_csv("../outputs/sim_outputs/sim_low_dim_reg.csv", index=False)

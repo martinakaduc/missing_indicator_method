@@ -26,7 +26,7 @@ def load_data(reader, discretizer, normalizer, small_part=False, return_names=Fa
 
 def save_results(names, pred, y_true, path):
     common_utils.create_directory(os.path.dirname(path))
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         f.write("stay,prediction,y_true\n")
-        for (name, x, y) in zip(names, pred, y_true):
+        for name, x, y in zip(names, pred, y_true):
             f.write("{},{:.6f},{}\n".format(name, x, y))
