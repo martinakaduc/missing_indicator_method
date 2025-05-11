@@ -122,7 +122,8 @@ def gen_results(n, p, imputer_name, n_blocks=10, inf_prob=0.5, seed=10, alpha=0.
     elif imputer_name == "gc":
         imputer = make_pipeline(
             StandardScaler(),
-            GCImputer(random_state=seed, min_ord_ratio=np.inf, max_iter=50, n_jobs=1),
+            GCImputer(random_state=seed, min_ord_ratio=np.inf,
+                      max_iter=50, n_jobs=1),
         )
     elif imputer_name == "lrgc":
         imputer = make_pipeline(
@@ -134,12 +135,14 @@ def gen_results(n, p, imputer_name, n_blocks=10, inf_prob=0.5, seed=10, alpha=0.
     elif imputer_name == "mf":
         imputer = make_pipeline(
             StandardScaler(),
-            IterativeImputer(estimator=RandomForestRegressor(random_state=seed)),
+            IterativeImputer(
+                estimator=RandomForestRegressor(random_state=seed)),
         )
     else:
         raise ValueError("imputer_name must be one of mean, gc, or mf")
 
-    X_train_imputed, impute_time = time_fit_transform(imputer, X_train_masked, y_train)
+    X_train_imputed, impute_time = time_fit_transform(
+        imputer, X_train_masked, y_train)
 
     # Is imputer didn't finish, report none results
     if X_train_imputed is None:
@@ -147,10 +150,12 @@ def gen_results(n, p, imputer_name, n_blocks=10, inf_prob=0.5, seed=10, alpha=0.
         for model, model_params in zip(models, model_params_sets):
             model_name = get_model_name(model)
             results.append(
-                [seed, alpha, inf_prob, imputer_name, model_name, "No_MIM", None, None]
+                [seed, alpha, inf_prob, imputer_name,
+                    model_name, "No_MIM", None, None]
             )
             results.append(
-                [seed, alpha, inf_prob, imputer_name, model_name, "MIM", None, None]
+                [seed, alpha, inf_prob, imputer_name,
+                    model_name, "MIM", None, None]
             )
             results.append(
                 [
@@ -204,31 +209,31 @@ def gen_results(n, p, imputer_name, n_blocks=10, inf_prob=0.5, seed=10, alpha=0.
             model_params["random_state"] = seed
 
         # Performance for no MIM
-        # model_ = model(**model_params)
-        # no_mim_time = time_fit(model_, X_train_imputed, y_train)
+        model_ = model(**model_params)
+        no_mim_time = time_fit(model_, X_train_imputed, y_train)
 
-        # no_mim_score = metric(y_test, model_.predict(
-        #     X_test_imputed), **metric_kwargs)
-        # results.append([seed, alpha, inf_prob, imputer_name, model_name,
-        #                "No_MIM", no_mim_score, impute_time + no_mim_time])
+        no_mim_score = metric(y_test, model_.predict(
+            X_test_imputed), **metric_kwargs)
+        results.append([seed, alpha, inf_prob, imputer_name, model_name,
+                       "No_MIM", no_mim_score, impute_time + no_mim_time])
 
         # Performance for normal MIM
-        # train_mask_feats = np.where(np.isnan(train_mask), 1, 0)
-        # test_mask_feats = np.where(np.isnan(test_mask), 1, 0)
-        # X_train_input = np.hstack((
-        #     X_train_imputed,
-        #     train_mask_feats,
-        # ))
-        # X_test_input = np.hstack((
-        #     X_test_imputed,
-        #     test_mask_feats,
-        # ))
-        # model_ = model(**model_params)
-        # mim_time = time_fit(model_, X_train_input, y_train)
-        # mim_score = metric(y_test, model_.predict(
-        #     X_test_input), **metric_kwargs)
-        # results.append([seed, alpha, inf_prob, imputer_name,
-        #                model_name, "MIM", mim_score, impute_time + mim_time])
+        train_mask_feats = np.where(np.isnan(train_mask), 1, 0)
+        test_mask_feats = np.where(np.isnan(test_mask), 1, 0)
+        X_train_input = np.hstack((
+            X_train_imputed,
+            train_mask_feats,
+        ))
+        X_test_input = np.hstack((
+            X_test_imputed,
+            test_mask_feats,
+        ))
+        model_ = model(**model_params)
+        mim_time = time_fit(model_, X_train_input, y_train)
+        mim_score = metric(y_test, model_.predict(
+            X_test_input), **metric_kwargs)
+        results.append([seed, alpha, inf_prob, imputer_name,
+                       model_name, "MIM", mim_score, impute_time + mim_time])
 
         # Performance for dynamic MIM
         dynamic_mim = MIM(features="dynamic", alpha=alpha)
@@ -267,27 +272,27 @@ def gen_results(n, p, imputer_name, n_blocks=10, inf_prob=0.5, seed=10, alpha=0.
         )
 
         # Performance for Oracle MIM
-        # oracle_mim = Oracle_MIM(
-        #     indicators_to_keep=np.flatnonzero(np.repeat(power, block_size))
-        # )
+        oracle_mim = Oracle_MIM(
+            indicators_to_keep=np.flatnonzero(np.repeat(power, block_size))
+        )
 
-        # train_mask_feats = oracle_mim.fit_transform(X_train_masked, y_train)
-        # test_mask_feats = oracle_mim.transform(X_test_masked)
+        train_mask_feats = oracle_mim.fit_transform(X_train_masked, y_train)
+        test_mask_feats = oracle_mim.transform(X_test_masked)
 
-        # X_train_input = np.hstack((
-        #     X_train_imputed,
-        #     train_mask_feats,
-        # ))
-        # X_test_input = np.hstack((
-        #     X_test_imputed,
-        #     test_mask_feats,
-        # ))
-        # model_ = model(**model_params)
-        # oracle_mim_time = time_fit(model_, X_train_input, y_train)
-        # oracle_mim_score = metric(
-        #     y_test, model_.predict(X_test_input), **metric_kwargs)
-        # results.append([seed, alpha, inf_prob, imputer_name, model_name,
-        #                "Oracle_MIM", oracle_mim_score, impute_time + oracle_mim_time])
+        X_train_input = np.hstack((
+            X_train_imputed,
+            train_mask_feats,
+        ))
+        X_test_input = np.hstack((
+            X_test_imputed,
+            test_mask_feats,
+        ))
+        model_ = model(**model_params)
+        oracle_mim_time = time_fit(model_, X_train_input, y_train)
+        oracle_mim_score = metric(
+            y_test, model_.predict(X_test_input), **metric_kwargs)
+        results.append([seed, alpha, inf_prob, imputer_name, model_name,
+                       "Oracle_MIM", oracle_mim_score, impute_time + oracle_mim_time])
 
         # Performance for dynamic MIM with GA
         dynamic_mim = MIM(
@@ -390,4 +395,5 @@ if __name__ == "__main__":
         ],
     )
 
-    results.to_csv(f"sim_outputs/sim_dynamic_mim_block_{args.imputer}.csv", index=False)
+    results.to_csv(
+        f"sim_outputs/sim_dynamic_mim_block_{args.imputer}.csv", index=False)
